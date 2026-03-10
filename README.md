@@ -14,8 +14,8 @@ Designed to plug into **OpenClaw** (or any OpenRouter-compatible backend) — sa
 
 This app is the mobile front-end for that. It connects to OpenClaw's agent infrastructure and wraps it in a voice layer:
 
-- 🎙️ **Continuous mic listening** with VAD (silence detection)
-- 📝 **STT** — speech-to-text (Whisper or Deepgram)
+- 🎙️ **Native on-device STT** — iOS SFSpeechRecognizer (Siri) + Android SpeechRecognizer, **no audio sent to cloud**
+- 📝 **Continuous transcription** — real-time streaming transcript as you speak
 - 🧠 **LLM streaming** — token-by-token from Claude/GPT via OpenRouter
 - 🔊 **TTS streaming** — audio starts playing before the full response is ready
 - 🗂️ **Topic/thread awareness** — same agent context as Telegram
@@ -39,24 +39,33 @@ This app is the mobile front-end for that. It connects to OpenClaw's agent infra
 
 ### Layers
 
-| Layer | Options | Notes |
+| Layer | Package | Notes |
 |-------|---------|-------|
-| Audio capture | `expo-audio` | New stable API |
-| VAD | RMS-based silence detection | Custom, lightweight |
-| STT | OpenAI Whisper API | Easy, accurate |
+| STT (on-device) | `@jamsch/expo-speech-recognition` | iOS SFSpeechRecognizer + Android SpeechRecognizer. `requiresOnDeviceRecognition: true` = no cloud, no latency |
 | LLM | OpenRouter → Claude/GPT | SSE streaming |
 | TTS | OpenAI TTS / ElevenLabs | Streaming audio chunks |
+| Audio playback | `expo-audio` | Chunk queue playback |
 | Backend | OpenClaw Gateway | Agent identity + topics |
+
+#### Why native on-device STT?
+
+- **No Whisper API cost** — zero STT cost
+- **No upload latency** — transcript starts instantly
+- **Privacy** — audio never leaves the device
+- **Continuous mode** — keeps listening, streams results as you speak
+- iOS uses **Siri's engine** (SFSpeechRecognizer) — very accurate in French
+- Android uses Google on-device model (needs one-time download)
 
 ---
 
 ## Roadmap
 
 ### Phase 1 — Skeleton
-- [ ] Expo app boilerplate (TypeScript, bare workflow)
-- [ ] Mic permission + audio capture (`expo-audio`)
-- [ ] Basic VAD: silence detection via RMS threshold
-- [ ] Send audio to Whisper API → get transcript
+- [ ] Expo app boilerplate (TypeScript, bare/dev-client workflow)
+- [ ] Integrate `@jamsch/expo-speech-recognition`
+- [ ] Mic permission + `requiresOnDeviceRecognition: true`
+- [ ] Continuous listening → streaming transcript in UI
+- [ ] Silence detection: stop on pause, send to LLM
 
 ### Phase 2 — LLM Integration
 - [ ] Connect to OpenRouter (SSE streaming)
@@ -83,12 +92,12 @@ This app is the mobile front-end for that. It connects to OpenClaw's agent infra
 
 ## Tech Stack
 
-- **Expo** (bare workflow, SDK 52+)
+- **Expo** (bare/dev-client workflow, SDK 52+)
 - **TypeScript**
-- **expo-audio** — mic + playback
-- **OpenAI API** — Whisper STT + TTS
+- **`@jamsch/expo-speech-recognition`** — native on-device STT (iOS + Android)
+- **`expo-audio`** — audio playback (TTS chunks)
 - **OpenRouter** — LLM streaming (Claude, GPT, etc.)
-- **ElevenLabs** (optional) — premium voice
+- **OpenAI TTS / ElevenLabs** — voice synthesis
 - **OpenClaw Gateway** — agent backend
 
 ---
@@ -110,7 +119,26 @@ ChatGPT's voice mode is locked to OpenAI. This app:
 # (Coming soon — scaffold in progress)
 npx create-expo-app expo-voice-agent --template blank-typescript
 cd expo-voice-agent
-npm install expo-audio
+npx expo install expo-audio @jamsch/expo-speech-recognition
+```
+
+> ⚠️ Requires a **custom dev client** (not Expo Go). Run `npx expo run:ios` or `npx expo run:android`.
+
+### On-Device STT — Quick Example
+
+```typescript
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from '@jamsch/expo-speech-recognition';
+
+useSpeechRecognitionEvent("result", (ev) => {
+  setTranscript(ev.results[0]?.transcript ?? "");
+});
+
+ExpoSpeechRecognitionModule.start({
+  lang: "fr-FR",
+  continuous: true,
+  requiresOnDeviceRecognition: true, // 🔒 never leaves the device
+  interimResults: true,              // stream results as you speak
+});
 ```
 
 ---
@@ -119,12 +147,12 @@ npm install expo-audio
 
 | Service | Cost | Notes |
 |---------|------|-------|
-| OpenAI Whisper | $0.006/min | Very cheap |
+| STT (on-device) | **Free** | Native iOS/Android — no API, no upload |
 | OpenAI TTS | $15/1M chars | ~$0.01 per response |
 | ElevenLabs | $5-22/mo | Better quality, streaming |
 | OpenRouter LLM | Varies | Claude Sonnet ~$3/$15 per 1M tokens |
 
-For casual use, cost is negligible. For a real product, ElevenLabs + Deepgram are better options.
+STT is now free. The only real cost is LLM inference + TTS.
 
 ---
 
