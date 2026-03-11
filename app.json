@@ -14,10 +14,15 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.flexiboyz.expovoiceagent"
+      "bundleIdentifier": "com.flexiboyz.expovoiceagent",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app uses the microphone to capture your voice for speech recognition.",
+        "NSSpeechRecognitionUsageDescription": "This app uses on-device speech recognition to transcribe your voice."
+      }
     },
     "android": {
       "package": "com.flexiboyz.expovoiceagent",
+      "permissions": ["RECORD_AUDIO"],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -28,6 +33,8 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": []
+    "plugins": [
+      "@jamsch/expo-speech-recognition"
+    ]
   }
 }
