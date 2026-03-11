@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { StatusBar } from "expo-status-bar";
 import {
   StyleSheet,
@@ -9,7 +10,24 @@ import {
 import { useSpeechRecognition } from "../hooks/useSpeechRecognition";
 
 export default function HomeScreen() {
-  const { transcript, isListening, start, stop } = useSpeechRecognition();
+  const handleSilenceDetected = useCallback((transcript: string) => {
+    console.log("[LLM] Would send to LLM:", transcript);
+  }, []);
+
+  const {
+    finalTranscript,
+    interimTranscript,
+    isListening,
+    lastSubmitted,
+    start,
+    stop,
+  } = useSpeechRecognition({
+    lang: "fr-FR",
+    silenceTimeoutMs: 1500,
+    onSilenceDetected: handleSilenceDetected,
+  });
+
+  const hasTranscript = finalTranscript || interimTranscript;
 
   return (
     <View style={styles.container}>
@@ -20,10 +38,29 @@ export default function HomeScreen() {
         style={styles.transcriptBox}
         contentContainerStyle={styles.transcriptContent}
       >
-        <Text style={styles.transcriptText}>
-          {transcript || "Appuyez sur le micro pour parler…"}
-        </Text>
+        {hasTranscript ? (
+          <Text style={styles.transcriptText}>
+            {finalTranscript}
+            {interimTranscript ? (
+              <Text style={styles.interimText}>
+                {finalTranscript ? " " : ""}
+                {interimTranscript}
+              </Text>
+            ) : null}
+          </Text>
+        ) : (
+          <Text style={styles.placeholderText}>
+            Appuyez sur le micro pour parler…
+          </Text>
+        )}
       </ScrollView>
+
+      {lastSubmitted ? (
+        <View style={styles.submittedBox}>
+          <Text style={styles.submittedLabel}>Envoyé au LLM :</Text>
+          <Text style={styles.submittedText}>{lastSubmitted}</Text>
+        </View>
+      ) : null}
 
       <Pressable
         style={[styles.micButton, isListening && styles.micButtonActive]}
@@ -65,15 +102,46 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#111",
     borderRadius: 12,
-    marginBottom: 32,
+    marginBottom: 16,
   },
   transcriptContent: {
     padding: 16,
   },
   transcriptText: {
-    color: "#ccc",
+    color: "#fff",
     fontSize: 16,
     lineHeight: 24,
+  },
+  interimText: {
+    color: "#888",
+    fontStyle: "italic",
+  },
+  placeholderText: {
+    color: "#555",
+    fontSize: 16,
+    lineHeight: 24,
+    fontStyle: "italic",
+  },
+  submittedBox: {
+    width: "100%",
+    backgroundColor: "#0a2a1a",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: "#1a4a2a",
+  },
+  submittedLabel: {
+    color: "#4caf50",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  submittedText: {
+    color: "#c8e6c9",
+    fontSize: 14,
+    lineHeight: 20,
   },
   micButton: {
     width: 72,
